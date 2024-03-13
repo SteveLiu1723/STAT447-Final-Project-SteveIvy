@@ -1,7 +1,21 @@
 ---
-title: "Proposal: A Twist on MH Algorithm and autoMALA"
+title: "Proposal: A Twist on Adaptive Metropolis-Hasting Algorithm"
 author: "Ivy Liu, Zefan Liu"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
 
+## Introduction
+
+
+## Methodology
+### Algorithm
+
+
+### Proof of Ergodicity
+
+
+### Simulation
+
+
+## References
