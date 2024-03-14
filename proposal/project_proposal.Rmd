@@ -3,6 +3,7 @@ title: "Proposal: A Twist on Adaptive Metropolis-Hasting Algorithm"
 author: "Ivy Liu, Zefan Liu"
 date: "`r Sys.Date()`"
 bibliography: ref.bib
+csl: apa.csl
 output: pdf_document
 ---
 
@@ -31,3 +32,4 @@ In this section, we will evaluate the performance of our proposed algorithm[THE 
 
 
 \section{3. References}
+<div id="refs"></div>
