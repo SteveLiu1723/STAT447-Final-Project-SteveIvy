@@ -2,6 +2,7 @@
 title: "Proposal: A Twist on Adaptive Metropolis-Hasting Algorithm"
 author: "Ivy Liu, Zefan Liu"
 date: "`r Sys.Date()`"
+bibliography: ref.bib
 output: pdf_document
 ---
 
@@ -10,14 +11,14 @@ Markov Chain Monte Carlo (MCMC) methods are a class of algorithms for sampling f
 
 Traditional MCMC methods include the Metropolis-Hastings algorithm and the Gibbs sampler. The effectiveness (the convergence rate) of traditional MCMC methods heavily depends on the choice of the proposal distribution and tuning parameters, such as the step size. These parameters need to be carefully selected and fixed throughout the sampling process. If poorly chosen, the chain might require a long time to converge to the target distribution, leading to inefficient sampling.
 
-Alternatively, adaptive MCMC methods aim to overcome the limitations of traditional MCMC by allowing the algorithm to automatically adjust its parameters during the sampling process. Specifically, the AM algorithm [reference] aims to use a proposal distribution that is adjusted by the empirical estimate of the covariance structure of the target distribution based on the iterations so far. In this project, we will propose a twist on the AM algirithm, such that its step size is determined also by the acceptance ratio of the previous run.
+Alternatively, adaptive MCMC methods aim to overcome the limitations of traditional MCMC by allowing the algorithm to automatically adjust its parameters during the sampling process [@tutorialMCMC]. Specifically, the AM algorithm [@AMalgorithm] aims to use a proposal distribution that is adjusted by the empirical estimate of the covariance structure of the target distribution based on the iterations so far. In this project, we will propose a twist on the AM algirithm, such that its step size is determined also by the acceptance ratio of the previous run.
 
 \section{2. Methodology}
 \subsection{2.1 Algorithm}
 
 
 \subsection{2.2 Proof of Ergodicity}
-
+[@ergodicity]
 
 \subsection{2.3 Simulation}
 In this section, we will evaluate the performance of our proposed algorithm[THE NAME], the AM algorithm, and the traditional MH algorithm on the following distribution: 
