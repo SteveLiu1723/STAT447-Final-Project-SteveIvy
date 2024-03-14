@@ -20,7 +20,7 @@ Traditional MCMC methods include the Metropolis-Hastings algorithm and the Gibbs
 Alternatively, adaptive MCMC methods aim to overcome the limitations of traditional MCMC by allowing the algorithm to automatically adjust its parameters during the sampling process [@tutorialMCMC]. Specifically, the AM algorithm [@AMalgorithm] aims to use a proposal distribution that is adjusted by the empirical estimate of the covariance structure of the target distribution based on the iterations so far. In this project, we will propose a twist on the AM algirithm, such that its step size is determined also by the acceptance ratio of the previous run.
 
 
-\section{1. Methodology}
+\section{2. Methodology}
 \subsection{2.1 Algorithm}
 We propose the following Markov Chain Monte Carlo algorithm, which imposes a twist on the proposal structure of Adaptive Monte Carlo (AMC) method. 
 \begin{algorithm}
