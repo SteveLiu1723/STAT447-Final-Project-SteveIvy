@@ -53,7 +53,7 @@ $\text{lim}_{n\rightarrow\infty}\text{sup}_{x\in \mathbf{X}}||P_{\Gamma_{n+1}}(x
 \item \textbf{Bounded Convergence}: The time that distribution that our algorithm preserves converges to the target distribution is finite.
 \end{enumerate}
 \subsection{2.3 Simulation}
-In this section, we will evaluate the performance of our proposed algorithm[THE NAME], the AM algorithm, and the traditional MH algorithm on the following distribution: 
+In this section, we will evaluate the performance of our proposed algorithm, the AM algorithm, and the traditional MH algorithm on the following distribution: 
 \begin{enumerate}
 \item The standard normal distribution
 \item The mixture of two normal distribution
