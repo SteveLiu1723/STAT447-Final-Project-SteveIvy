@@ -1,21 +1,51 @@
 ---
 title: "Proposal: A Twist on Adaptive Metropolis-Hasting Algorithm"
 author: "Ivy Liu, Zefan Liu"
+header-includes:
+  - \usepackage{float}
+  - \floatplacement{figure}{!htb}
+  - \usepackage{algorithm}
+  - \usepackage{algpseudocode}
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
 
-## Introduction
+\section{1. Introduction}
 
 
-## Methodology
-### Algorithm
+\section{1. Methodology}
+\subsection{2.1 Algorithm}
+We propose the following Markov Chain Monte Carlo algorithm, which imposes a twist on the proposal structure of Adaptive Monte Carlo (AMC) method. 
+\begin{algorithm}
+    \caption{Let's try}
+    \begin{algorithmic}[1]
+        \State Initialize $\Gamma_0 = \mathbf{I}_d, \beta = 0.05, \alpha_0 = 0.4$, and $\sum_1 = \mathbf{I}_d$. Let $N$ denotes the iteration times, $x$ denotes samples and $\gamma(x)$ denotes the unnormalized density of the distribution to sample from. Let $x_0$ denote the initial value picked from the target distribution.
+        \State For $n=1,2,...,N$, repeat
+        \begin{equation*}
+        \begin{split}
+        \Sigma_{n,n>1} &= \frac{1}{n}\sum^{n-1}_{i=1}(x_i-\Bar{x})(x_i-\Bar{x})^T\\
+        W_n &= \frac{\alpha_{n-1}-0.4}{\sqrt{n}}\\
+        \Gamma_n &= (1+W_n)\Gamma_{n-1} \\
+        x' &\sim Qn(x_n|x_{n-1})\\
+           & = (1-\beta)N(x_{n-1},(2.38)^2\Gamma_n/d)+\beta N(x_{n-1},(0.1)^2\Gamma_n/d)\\
+        \alpha_n &= min(1,\frac{\gamma(x')Q_n(x_{n-1}|x')}
+                              {\gamma(x_{n-1})Q_n(x'|x-{n-1})}) \\
+        u &\sim Unif(0,1)\\
+        \text{if $u\leq \alpha_n$, set $x_n = x'$, otherwise $x_n = x_{n-1}$}
+        \end{split}
+        \end{equation*}
+        \State Return a sequence of samples $\{x_1,...,x_N\}$.
+    \end{algorithmic}
+\end{algorithm}
+
+\subsection{2.2 Proof of Ergodicity}
+To prove that our Adaptive MCMC method will vanish, we need to prove our algorithm satisfy the following two conditions
+\begin{enumerate}
+\item \textbf{Diminishing Adaptation}: 
+$\text{lim}_{n\rightarrow\infty}\text{sup}_{x\in \mathbf{X}}||P_{\Gamma_{n+1}}(x)-P_{\Gamma_{n}}(x)||$ is $o_p(1)$
+\item \textbf{Bounded Convergence}: The time that distribution that our algorithm preserves converges to the target distribution is finite.
+\end{enumerate}
+\subsection{2.3 Simulation}
 
 
-### Proof of Ergodicity
-
-
-### Simulation
-
-
-## References
+\section*{References}
