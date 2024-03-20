@@ -22,7 +22,7 @@ Alternatively, adaptive MCMC methods aim to overcome the limitations of traditio
 
 \section{2. Methodology}
 \subsection{2.1 Algorithm}
-We propose the following Markov Chain Monte Carlo algorithm, which imposes a twist on the proposal structure of Adaptive Monte Carlo (AMC) method. 
+We propose the following Markov Chain Monte Carlo algorithm, which imposes a twist on the proposal structure of Adaptive Monte Carlo (AMC) method [@tutorialMCMC]. The overall idea is still updating the proposal at each step of sampling based on a combination of empirical posterior distribution and a baseline proposal distribution, where the weight from the baseline proposal is relatively small, but our twist will also update the baseline proposal based on the previous stepsize and likelihood ratio. Note that some initialized values are following the convention in previous works [@tutorialMCMC].
 \begin{algorithm}
     \caption{Let's try}
     \begin{algorithmic}[1]
