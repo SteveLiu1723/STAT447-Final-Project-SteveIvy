@@ -1,0 +1,84 @@
+---
+title: "Proposal: A Twist on Adaptive Metropolis-Hasting Algorithm"
+author: "Ivy Liu, Zefan Liu"
+header-includes:
+  - \usepackage{float}
+  - \floatplacement{figure}{!htb}
+  - \usepackage{algorithm}
+  - \usepackage{algpseudocode}
+date: "`r Sys.Date()`"
+bibliography: ref.bib
+csl: apa.csl
+output: pdf_document
+---
+
+\section{1. Introduction}
+
+Markov Chain Monte Carlo (MCMC) methods are a class of algorithms for sampling from probability distributions based on constructing a Markov chain that has the desired distribution as its equilibrium distribution. As the chain progresses, MCMC provides a way to estimate the posterior distribution of the parameters.
+
+Traditional MCMC methods include the Metropolis-Hastings algorithm and the Gibbs sampler. The effectiveness (the convergence rate) of traditional MCMC methods heavily depends on the choice of the proposal distribution and tuning parameters, such as the step size. These parameters need to be carefully selected and fixed throughout the sampling process. If poorly chosen, the chain might require a long time to converge to the target distribution, leading to inefficient sampling.
+
+Alternatively, adaptive MCMC methods aim to overcome the limitations of traditional MCMC by allowing the algorithm to automatically adjust its parameters during the sampling process [@tutorialMCMC]. Specifically, the AM algorithm [@AMalgorithm] aims to use a proposal distribution that is adjusted by the empirical estimate of the covariance structure of the target distribution based on the iterations so far. In this project, we will propose a twist on the AM algirithm, such that its step size is determined also by the acceptance ratio of the previous run.
+
+```{=tex}
+\section{2. Methodology}
+\subsection{2.1 Algorithm}
+```
+We propose the following Markov Chain Monte Carlo algorithm, which imposes a twist on the proposal structure of Adaptive Monte Carlo (AMC) method [@tutorialMCMC]. The overall idea is still updating the proposal at each step of sampling based on a combination of empirical posterior distribution and a baseline proposal distribution, where the weight from the baseline proposal is relatively small, but our twist will also update the baseline proposal based on the previous stepsize and likelihood ratio. Note that some initialized values are following the convention in previous works [@tutorialMCMC].
+
+```{=tex}
+\begin{algorithm}
+    \caption{Let's try}
+    \begin{algorithmic}[1]
+        \State Initialize $\Gamma_0 = \mathbf{I}_d, \beta = 0.05, \alpha_0 = 0.4$, and $\sum = \mathbf{I}_d$. Let $N$ denotes the iteration times, $x$ denotes samples and $\gamma(x)$ denotes the unnormalized density of the distribution to sample from. Let $x_0$ denote the initial value picked from the target distribution.
+        \State For $n=1,2,...,N$, repeat
+        \If{$i \geq 2$} 
+            \State $\Sigma \gets \frac{1}{n}\sum^{n-1}_{i=1}(x_i-\bar{x})(x_i-\bar{x})^T$
+            \Comment{covariance matrix}
+        \EndIf
+        \State $W_n \gets \frac{\alpha_{n-1}-0.4}{\sqrt{n}}$ \Comment{Step size adjustment}
+        \State $\Gamma_n \gets (1+W_n)\Gamma_{n-1}$
+        \State $x' \sim Q_n(x_n|x_{n-1}) = (1-\beta)N(x_{n-1},(2.38)^2\Sigma_n/d)+\beta N(x_{n-1},(0.1)^2\Gamma_n/d)$ 
+        \State \Comment{Propose x' from the mixture proposal}
+        \State $\alpha_n \gets min(1, \frac{\gamma(x') Q_n(x_{n-1}|x')}{\gamma(x_{n-1}) Q_n(x'|x_{n-1})})$ \Comment{The Hastings ratio}
+        \State $u \sim Unif(0,1)$
+        \If{$u\leq \alpha_n$}
+          \State $x_n \gets x'$
+        \Else
+          \State $x_n \gets x_{n-1}$
+        \EndIf
+        \State Return a sequence of samples $\{x_i\}_{i = 1}^N$.
+    \end{algorithmic}
+\end{algorithm}
+```
+\subsection{2.2 Proof of Ergodicity}
+
+To prove that our Adaptive MCMC method will vanish, we need to prove our algorithm satisfy the following two conditions [@ergodicity]
+
+```{=tex}
+\begin{enumerate}
+\item \textbf{Diminishing Adaptation}: 
+$\text{lim}_{n\rightarrow\infty}\text{sup}_{x\in \mathbf{X}}||P_{\Gamma_{n+1}}(x)-P_{\Gamma_{n}}(x)||$ is $o_p(1)$
+\item \textbf{Bounded Convergence}: The time that distribution that our algorithm preserves converges to the target distribution is finite.
+\end{enumerate}
+\subsection{2.3 Simulation}
+```
+In this section, we will evaluate the performance of our proposed algorithm, the AM algorithm, and the traditional MH algorithm on the following distribution:
+
+```{=tex}
+\begin{enumerate}
+\item The standard normal distribution
+\item The mixture of two normal distribution
+\item A funnel-shaped 2D distribution
+\item A banana-shaped 2D distribution
+\end{enumerate}
+```
+
+\section*{3. Simulation}
+
+
+
+\section*{References}
+
+::: {#refs}
+:::
