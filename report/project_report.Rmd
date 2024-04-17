@@ -11,7 +11,10 @@ bibliography: ref.bib
 csl: apa.csl
 output: pdf_document
 ---
-
+```{r, include=FALSE}
+# load necessary packages
+library(coda)
+```
 \section{1. Introduction}
 
 Markov Chain Monte Carlo (MCMC) methods are a class of algorithms for sampling from probability distributions based on constructing a Markov chain that has the desired distribution as its equilibrium distribution. As the chain progresses, MCMC provides a way to estimate the posterior distribution of the parameters.
@@ -24,6 +27,7 @@ Alternatively, adaptive MCMC methods aim to overcome the limitations of traditio
 \section{2. Methodology}
 \subsection{2.1 Algorithm}
 ```
+
 We propose the following Markov Chain Monte Carlo algorithm, which imposes a twist on the proposal structure of Adaptive Monte Carlo (AMC) method [@tutorialMCMC]. The overall idea is still updating the proposal at each step of sampling based on a combination of empirical posterior distribution and a baseline proposal distribution, where the weight from the baseline proposal is relatively small, but our twist will also update the baseline proposal based on the previous stepsize and likelihood ratio. Note that some initialized values are following the convention in previous works [@tutorialMCMC].
 
 ```{=tex}
@@ -51,6 +55,70 @@ We propose the following Markov Chain Monte Carlo algorithm, which imposes a twi
     \end{algorithmic}
 \end{algorithm}
 ```
+
+```{r, include=FALSE}
+# a kernel function
+kernel <- function(Gamma, x, x_sigma, beta, d){
+  kernel_choice <- rbinom(1,1,prob=beta)
+  if(kernel_choice==0){
+    z <- MASS::mvrnorm(n = 1, mu=rep(0,d), Sigma = (2.38)^2 * x_sigma/d)
+  }
+  else{
+    z <- MASS::mvrnorm(n = 1, mu=rep(0,d), Sigma = 0.1 * Gamma/d)
+  }
+  x_prime = x + z
+  # return the next state
+  return(x_prime)
+}
+# a MCMC algorithm which can take multiple sets of parameters
+mcmc_multmix <- function(x0, N, log_gamma, Gamma, beta, alpha, x_sigma, dat){
+  d_list <- sapply(x0, length) # dim of each parameter
+  d <- sum(d_list)
+  xbar <- x0
+  x <- x0
+  samples <- lapply(d_list, function(d){matrix(data=0, nrow=N, ncol=d)})
+  
+  # start the iteration
+  for(t in 1:N){
+    Wn <- (alpha - 0.4)/sqrt(t)
+    Gamma <- lapply(Gamma, function(gamm){(1 + Wn) * gamm})
+    x_prime <- list()
+    
+    # get new samples
+    for(i in 1:length(d_list)){
+      x_prime[[i]] <- kernel(Gamma[[i]], x[[i]], x_sigma[[i]], beta, d_list[i])
+    }
+    
+    #MH accept/reject
+    alpha <- min(c(1, exp(log_gamma(unlist(x_prime),dat)-
+                            log_gamma(unlist(x), dat))))
+    if(runif(1) < alpha){
+      x = x_prime
+    }
+    
+    # store new sample
+    for(i in 1:length(d_list)){
+      samples[[i]][t,] <- x[[i]]
+    }
+    
+    # update covariance matrix using Sherman-Morrison formula
+    if(t == 2){
+      x_sigma = lapply(samples, function(sample){var(sample[1:2, ])})
+    } else if(t > 2){
+      x_sigma <- mapply(function(sigma, mu, y) {
+        (t-1)/t * sigma + (t-1)/t^2 * (mu - y) %*% t(mu - y)
+        }, x_sigma, xbar, x, SIMPLIFY = FALSE)
+    }
+    
+    # update xbar
+    xbar = mapply(function(mu, y) {((t-1)*mu + y)/t}, 
+                  xbar, x, SIMPLIFY = FALSE)
+  }
+  
+  return(samples)
+}
+```
+
 \subsection{2.2 Proof of Ergodicity}
 
 To prove that our Adaptive MCMC method will vanish, we need to prove our algorithm satisfy the following two conditions [@ergodicity]
@@ -76,9 +144,286 @@ In this section, we will evaluate the performance of our proposed algorithm, the
 
 \section*{3. Simulation}
 
+\subsection*{3.1 Simulation under simple normal case}
+
+Our simulation begins with a toy example using a standard normal distribution. Specifically, the algorithm generates 100 independent and identically distributed (i.i.d.) data points, each drawn from a standard normal distribution. We used our adaptive MCMC to estimate the mean and the standard deviation parameters. This simulation provides a controlled setting to assess the effectiveness of our proposed MCMC algorithm. We set the initial values of mean and standard deviation to be -5 and 5. With 10000 iterations, the trace-plots of two parameters are as follows:
+
+```{r, include=FALSE}
+# setups
+log_gamma_sim1 = function(para, data) {
+  # Return log(0.0) if parameters are outside of the support
+  if (para[2]<0) 
+    return(-Inf)
+  log_prior = 
+    dnorm(para[1], mean=0, sd=1, log = TRUE) + 
+    dexp(para[2], 1/100, log = TRUE)
+  log_likelihood = 0.0
+  for (j in 1:length(data)) {
+    log_likelihood = log_likelihood + dnorm(data[j], mean=para[1],
+                                            sd = para[2], log = TRUE)
+  }
+  return(log_prior + log_likelihood)
+}
+
+set.seed(447)
+sample_sim1 <- mcmc_multmix(x0=list(c(-5,5)), N=10000, log_gamma=log_gamma_sim1, 
+                    Gamma=list(diag(2)), beta=0.5, alpha=0.5, 
+                    x_sigma=list(diag(2)), dat=rnorm(n=100, mean=0, sd=1))
+```
+
+```{r, echo=FALSE fig.width=5, fig.height=5}
+sim1_mean_trace<- plot(sample_sim1[[1]][,1], xlab = "MCMC iteration", 
+                       ylab = "mean", type = "o",
+                       col = rgb(red = 0, green = 0, blue = 0, alpha = 0.2),
+                       main = "Trace Plot of Mean Parameter")
+sim1_sd_trace <- plot(sample_sim1[[1]][,2], xlab = "MCMC iteration", 
+                      ylab = "sd", type = "o",
+                      col = rgb(red = 0, green = 0, blue = 0, alpha = 0.2),
+                      main = "Trace Plot of Standard Deviation Parameter")
+par(mfrow=c(1,2))
+```
+
+In the first plot, after fast mixing, the trace of the mean parameter appears to oscillate around 0, which agrees with the true mean of a standard normal distribution. The cloud of points suggests that there is a certain amount of variability in the mean estimates, which is due to the small sample size. In addition, the plot does not show a trend or heteroscedasticity over time, indicating that the Markov chain is stationary. The observations on the second plot can give us similar conclusions, which verify that our proposed MCMC algorithm has performed effectively in estimating these parameters. Due to the simplicity of the toy example, model diagnosis is not conducted.
+
+
+\subsection{3.2 Simulation using in-class dataset: SMS data}
+
+The second simulation study uses a real-world dataset based a mixture model assumption, which is directly borrowed from course materials. The dataset records the daily number of text messages sent and received by Davidson Pilon over 74 days, and we assume that there exist a "hidden" change point among these 74 days, such that the data before the change point and after the change point are from two different exponential distributions. Our MCMC algorithm is going to detect the location of this change point and the parameters of two exponential distributions under a Bayesian model framework, where only the covariance between two exponential parameters is considered. Since we only know the true change point, a comparison between our algorithm and a standard random walk MH is made. The initial point we choose are slightly extreme, and the example trace-plots are as follows:
+
+```{r}
+# standard random walk MH MCMC
+
+```
+
+```{r, include=FALSE}
+# setups
+sms_data = c(
+    13,24,8,24,7,35,14,11,15,11,22,22,11,57,11,19,29,6,19,
+    12,22,12,18,72,32,9,7,13,19,23,27,20,6,17,13,10,14,6,
+    16,15,7,2,15,15,19,70,49,7,53,22,21,31,19,11,18,20,12,
+    35,17,23,17,4,2,31,30,13,27,0,39,37,5,14,13,22)
+
+set.seed(447)
+x0 <- c(rexp(1, rate = 1/100), 
+        rexp(1, rate = 1/100), 
+        extraDistr::rdunif(1, min = 1, max = length(sms_data)))
+
+log_gamma_sim2 = function(para, data) {
+  # Return log(0.0) if parameters are outside of the support
+  if (para[1] < 0 | para[2] < 0 | para[3] < 1 | para[3] > length(data)) 
+    return(-Inf)
+  log_prior = 
+    dexp(para[1], 1/100, log = TRUE) + dexp(para[2], 1/100, log = TRUE)
+  log_likelihood = 0.0
+  for (j in 1:length(data)) {
+    rate = if (j < para[3]) para[1] else para[2]
+    log_likelihood = log_likelihood + dpois(data[j], rate, log = TRUE)
+  }
+  
+  return(log_prior + log_likelihood)
+}
+
+sample_sim2 <- mcmc_multmix(x0=list(c(70,70), 70), N=10000, 
+                            log_gamma=log_gamma_sim2, Gamma=list(1,1,30), 
+                            beta=0.5, alpha=0.4, x_sigma=list(1,1,30), 
+                            dat=sms_data)
+```
+
+```{r}
+plot(sample_sim2[[3]][,1], xlab = "MCMC iteration", ylab = "mean", type = "o",
+     col = rgb(red = 0, green = 0, blue = 0, alpha = 0.2),
+     main = "Full Trace Plot of Rate before Change")
+plot(sample_sim2[[2]][,1], xlab = "MCMC iteration", ylab = "mean", type = "o",
+     col = rgb(red = 0, green = 0, blue = 0, alpha = 0.2),
+     main = "Full Trace Plot of Rate after Change")
+```
+
+The comparison between the trace-plots of same parameters suggest that our algorithm can still mix rapidly and gives good estimations to parameters in this non-synthetic scenario. To comprehensively compare the efficiency of our MCMC with that of standard random walk MH, we also examine the effective sample size per second of each MCMC under various numbers of iteration, and a summary table is given as follows:
+
 
 
 \section*{References}
 
 ::: {#refs}
 :::
+
+```{r}
+# run mcmc once
+kernel <- function(Gamma, x, x_sigma, beta, d){
+  kernel_choice <- rbinom(1,1,prob=beta)
+  if(kernel_choice==0){
+    z <- MASS::mvrnorm(n = 1, mu=rep(0,d), Sigma = (2.38)^2 * x_sigma/d)
+  }
+  else{
+    z <- MASS::mvrnorm(n = 1, mu=rep(0,d), Sigma = 0.1 * Gamma/d)
+  }
+  x_prime = x + z
+  # return the next state
+  return(x_prime)
+}
+```
+
+```{r}
+## x0: initial state
+## N: number of iterations
+## log_gamma: unnormalized posterior distribution on log scale
+## Gamma: covariance of a random walk step
+## beta: weight for the random walk in the mixture proposal
+## alpha: initial Hastings ratio
+## x_sigma: empirical covariance matrix
+## dat: the observed data
+mcmc <- function(x0, N, log_gamma, Gamma, beta, alpha, x_sigma, dat){
+  d <- length(x0) # dim of x0
+  samples <- matrix(0, nrow = N, ncol = d)
+  xbar <- x0 # current xbar
+  x = x0
+  
+  # start the iteration
+  for(t in 1:N){
+    Wn <- (alpha - 0.4)/sqrt(t)
+    Gamma <- (1 + Wn) * Gamma
+    x_prime <- forward_once(Gamma, x, x_sigma, beta, d)
+    alpha <- min(c(1, exp(log_gamma(x_prime, dat) - log_gamma(x, dat))))
+  
+    #determine whether to update
+    if(runif(1) < alpha){
+      x = x_prime
+    }
+    
+    # update covariance matrix using Sherman-Morrison formula
+    if(t == 2){
+      x_sigma = var(samples[1:2, ])
+    } else if(t > 2){
+      x_sigma <- (t-1)/t * x_sigma + (t-1)/t^2 * (xbar - x) %*% t(xbar - x)
+    }
+    # update xbar
+    xbar = ((t-1)*xbar + x)/t
+    
+    # store new sample
+    samples[t,] <- x
+  }
+  return(samples)
+}
+```
+
+```{r}
+mcmc_multmix <- function(x0, N, log_gamma, Gamma, beta, alpha, x_sigma, dat){
+  d_list <- sapply(x0, length) # dim of each parameter
+  d <- sum(d_list)
+  xbar <- x0
+  x <- x0
+  samples <- lapply(d_list, function(d){matrix(data=0, nrow=N, ncol=d)})
+  
+  # start the iteration
+  for(t in 1:N){
+    Wn <- (alpha - 0.4)/sqrt(t)
+    Gamma <- lapply(Gamma, function(gamm){(1 + Wn) * gamm})
+    x_prime <- list()
+    
+    # get new samples
+    for(i in 1:length(d_list)){
+      x_prime[[i]] <- kernel(Gamma[[i]], x[[i]], x_sigma[[i]], beta, d_list[i])
+    }
+    
+    #MH accept/reject
+    alpha <- min(c(1, exp(log_gamma(unlist(x_prime),dat)-
+                            log_gamma(unlist(x), dat))))
+    if(runif(1) < alpha){
+      x = x_prime
+    }
+    
+    # store new sample
+    for(i in 1:length(d_list)){
+      samples[[i]][t,] <- x[[i]]
+    }
+    
+    # update covariance matrix using Sherman-Morrison formula
+    if(t == 2){
+      x_sigma = lapply(samples, function(sample){var(sample[1:2, ])})
+    } else if(t > 2){
+      x_sigma <- mapply(function(sigma, mu, y) {
+        (t-1)/t * sigma + (t-1)/t^2 * (mu - y) %*% t(mu - y)
+        }, x_sigma, xbar, x, SIMPLIFY = FALSE)
+    }
+    
+    # update xbar
+    xbar = mapply(function(mu, y) {((t-1)*mu + y)/t}, 
+                  xbar, x, SIMPLIFY = FALSE)
+  }
+  
+  return(samples)
+}
+```
+
+```{r}
+mcmc_multmix_reverse <- function(x0, N, log_gamma, Gamma, beta, alpha, x_sigma, dat){
+  d_list <- sapply(x0, length) # dim of each parameter
+  d <- sum(d_list)
+  xbar <- x0
+  xbar_short <- x0
+  x <- x0
+  samples <- lapply(d_list, function(d){matrix(data=0, nrow=N, ncol=d)})
+  
+  # create the function reverse-kernel
+  reverse_kernel <- function(Gamma, x, x_sigma, xbar_short, beta, d){
+  kernel_choice <- rbinom(1,1,prob=beta)
+  if(kernel_choice==0){
+    x_prime <- MASS::mvrnorm(n = 1, mu=2*xbar_short-x, 
+                             Sigma = (2.38)^2 * x_sigma/d)
+  }
+  else{
+    x_prime <- MASS::mvrnorm(n = 1, mu=2*xbar_short-x, Sigma = 0.1 * Gamma/d)
+  }
+  # return the next state
+  return(x_prime)
+}
+  
+  # start the iteration
+  for(t in 1:N){
+    Wn <- (alpha - 0.4)/sqrt(t)
+    Gamma <- lapply(Gamma, function(gamm){(1 + Wn) * gamm})
+    x_prime <- list()
+    
+    # get new samples
+    for(i in 1:length(d_list)){
+      x_prime[[i]] <- reverse_kernel(Gamma[[i]], x[[i]], x_sigma[[i]], 
+                                     xbar_short[[i]],beta, d_list[i])
+    }
+    
+    #MH accept/reject
+    alpha <- min(c(1, exp(log_gamma(unlist(x_prime),dat)-
+                            log_gamma(unlist(x), dat))))
+    if(runif(1) < alpha){
+      x = x_prime
+    }
+    
+    # store new sample
+    for(i in 1:length(d_list)){
+      samples[[i]][t,] <- x[[i]]
+    }
+    
+    # update covariance matrix using Sherman-Morrison formula
+    if(t == 2){
+      x_sigma = lapply(samples, function(sample){var(sample[1:2, ])})
+    } else if(t > 2){
+      x_sigma <- mapply(function(sigma, mu, y) {
+        (t-1)/t * sigma + (t-1)/t^2 * (mu - y) %*% t(mu - y)
+        }, x_sigma, xbar, x, SIMPLIFY = FALSE)
+    }
+    
+    # update xbar
+    xbar = mapply(function(mu, y) {((t-1)*mu + y)/t}, 
+                  xbar, x, SIMPLIFY = FALSE)
+    if(t<=2000){
+      xbar_short = xbar
+    }
+    else{
+      xbar_short = mapply(function(mu_short, y, sam){
+        (mu_short*2000-sam[t-2000,]+y)/2000
+      }, xbar_short, x, samples, SIMPLIFY = FALSE)
+    }
+  }
+  
+  return(samples)
+}
+```
