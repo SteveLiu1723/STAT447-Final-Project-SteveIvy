@@ -1,5 +1,5 @@
 ---
-title: "BloRA MCMC: A Twist on Adaptive Metropolis-Hasting Algorithm"
+title: "BloRA MCMC: A Twist on Adaptive Metropolis-Hastings Algorithm"
 author: "Ivy Liu, Zefan Liu"
 header-includes:
   - \usepackage{float}
@@ -15,7 +15,6 @@ bibliography: ref.bib
 csl: apa.csl
 output: pdf_document
 ---
-
 \onehalfspacing
 
 ```{r, include=FALSE}
@@ -28,18 +27,18 @@ library(tibble)
 
 Markov Chain Monte Carlo (MCMC) methods are a class of algorithms for sampling from probability distributions based on constructing a Markov chain that has the desired distribution as its equilibrium distribution. MCMC is central to Bayesian statistics, allowing for the estimation of posterior distributions that are often analytically intractable. The basic idea behind MCMC is that by simulating the Markov chain over a long period, sampling from the Markov chain is equivalent to sampling from the target distribution.
 
-Traditional MCMC methods include the Metropolis-Hastings algorithm and the Gibbs sampler. The effectiveness (the convergence rate) of traditional MCMC methods heavily depends on the choice of the proposal distribution and tuning parameters, such as the step size. These parameters need to be carefully selected and fixed throughout the sampling process. If poorly chosen, the chain might require a long time to converge to the target distribution, leading to inefficient sampling. A common approach to this problem is to run the MCMC for a certain period, tune the proposal distribution according to the acceptance rate, and use the tuned proposal to generate samples. This approach in reality, however, often yield undesirable results [@AMalgorithm].
+Traditional MCMC methods include the Metropolis-Hastings (MH) algorithm and the Gibbs sampler. The effectiveness (the convergence rate) of traditional MCMC methods heavily depends on the choice of the proposal distribution and tuning parameters, such as the step size. These parameters need to be carefully selected and fixed throughout the sampling process. If poorly chosen, the chain might require a long time to converge to the target distribution, leading to inefficient sampling. A common approach to this problem is to run the MCMC for a certain period, tune the proposal distribution according to the acceptance rate, and use the tuned proposal to generate samples. This approach in reality, however, often yield undesirable results [@AMalgorithm].
 
-Alternatively, adaptive MCMC methods aim to overcome the limitations of traditional MCMC by allowing the algorithm to automatically adjust its parameters during the sampling process [@tutorialMCMC]. Specifically, the AM algorithm [@AMalgorithm] uses a proposal distribution that is adjusted by the empirical estimate of the covariance structure of the target distribution based on the iterations so far. However, this algorithm may be limited because of the fixed MH proposal as part of its transition kernel. Meanwhile, it doesn't allow us to utilize the covariance of parameters flexibly. In this project, we aim to resolve the limitation by adapting the acceptance probabilities in a careful way. We propose a new scheme that adds more flexibility to the AM algorithm, such that its step size is also determined by the acceptance probability of the previous run, and such an adaptation can be applied to each parameter block separately.
+Alternatively, adaptive MCMC methods aim to overcome the limitations of traditional MCMC by allowing the algorithm to automatically adjust its parameters during the sampling process [@tutorialMCMC]. Specifically, the AM algorithm [@AMalgorithm] uses a proposal distribution that is adjusted by the empirical estimate of the covariance structure of the target distribution based on the iterations so far. However, this algorithm may be limited because of the fixed MH proposal as part of its transition kernel. Meanwhile, it does not allow us to utilize the covariance of parameters flexibly. In this project, we aim to resolve the limitation by adapting the acceptance probabilities in a careful way. We propose a new scheme that adds more flexibility to the AM algorithm, such that its step size is also determined by the acceptance probability of the previous run. In addition, we allow such an adaptation to be applied to each parameter block separately.
 
-In the next section, we give an introduction of our algorithm and a mathematical check on the $\pi$-invariance property of it. In Section 3, we test our algorithm on three simulated/real datasets, along with the comparison with the traditional Metropolis-Hastings (MH) algorithm. We conclude the report with a general discussion of our adaptive MCMC algorithm in Section 4, highlighting its distinctive features and potential applications.
+In the next section, we give an introduction of our algorithm and a mathematical check on the $\pi$-invariance property of it. In Section 3, we test our algorithm on three simulated or real datasets, along with the comparison with the traditional MH algorithm. We conclude the report with a general discussion of our adaptive MCMC algorithm in Section 4, highlighting its distinctive features and potential applications.
 
 ```{=tex}
 \section{2. Methodology}
 \subsection{2.1 Algorithm}
 ```
 
-We propose the following Markov Chain Monte Carlo algorithm, which imposes a twist on the proposal structure of Adaptive Monte Carlo (AMC) method [@tutorialMCMC] and allows block-wise update of parameters. Specifically, for each block of parameters, our algorithm still uses the mixture of two multivariate normal proposals to update parameters. However, while we update the stepsize of the first proposal based on the empirical covariance matrix of this block [@tutorialMCMC], we also update the stepsize of the second proposal based on the acceptance ratio of the previous MCMC sample. Block can be chosen flexibly, so that different covariance structure can be used. Due to such a mechanism, we call our new algorithm Blockwise Ratio-Adjusted MCMC algorithm, which is \textbf{BloRA} in short. The algorithm works as follows:
+We propose the following MCMC algorithm, which imposes a twist on the proposal structure of Adaptive Monte Carlo (AMC) method [@tutorialMCMC] and allows block-wise update of parameters. Specifically, for each block of parameters, our algorithm still uses the mixture of two multivariate normal proposals to update parameters. However, while we update the stepsize of the first proposal based on the empirical covariance matrix of this block [@tutorialMCMC], we also update the stepsize of the second proposal based on the acceptance ratio of the previous iteration. Block can be chosen flexibly, so that different covariance structure can be used. Due to such a mechanism, we call our new algorithm \textbf{BloRA}, which stands for Blockwise Ratio-Adjusted AMC algorithm. The algorithm works as follows:
 
 ```{=tex}
 \begin{algorithm}
@@ -61,16 +60,14 @@ We propose the following Markov Chain Monte Carlo algorithm, which imposes a twi
         \For{parameter block $d = 1,...,D$}
             \State $\mathbf{S}_d[n,] = x_{d,n}$
         \EndFor
-        \If{$n=2$}
             \For{parameter block $d = 1,...,D$}
                 \If{$n=2$}
                     \State $\Sigma_{d,n} = $\textbf{Cov}$(\mathbf{S}_d[1:2,])$
-                \Else
+                \ElsIf{$n>2$}
                     \State $\Sigma_{d,n} = \frac{n-1}{n}\Sigma_{d,n-1}+\frac{1}{n^2}(\bar{x}_{d,n-1}-x_{d,n})(\bar{x}_{d,n-1}-x_{d,n})^T$
                     \State $\bar{x}_{d,n} = ((n-1)\bar{x}_{d,n-1}+x_{d,n})/n$
                 \EndIf
             \EndFor
-        \EndIf
     \EndFor
     \State Return $\mathbf{S}$, a list of matrices of MCMC samples.
 \end{algorithmic}
@@ -79,7 +76,7 @@ We propose the following Markov Chain Monte Carlo algorithm, which imposes a twi
 
 \subsection{2.2 Proof of $\pi$-Invariance}
 
-Let $\mathcal{L}$ be the empirical density of the samples we generated from the MCMC sampler, $\pi$ be the target distribution, and $g$ be the test function. To prove that our Adaptive MCMC method guarantees $\lim_{n \to \infty} \| \mathcal{L}(X_n) - \pi(\cdot) \| = 0$ (asymptotic convergence) and $\lim_{n \to \infty} \frac{1}{n} \sum_{i=1}^{n} g(X_i) = \pi(g)$ (WLLN), we need to prove our algorithm satisfy the following two conditions [@ergodicity]: 
+Let $\mathcal{L}$ be the empirical density of the samples we generated from the \textbf{BloRA} sampler, $\pi$ be the target distribution, and $g$ be the test function. To prove that \textbf{BloRA} guarantees $\lim_{n \to \infty} \| \mathcal{L}(X_n) - \pi(\cdot) \| = 0$ (asymptotic convergence) and $\lim_{n \to \infty} \frac{1}{n} \sum_{i=1}^{n} g(X_i) = \pi(g)$ (WLLN), we need to prove our algorithm satisfy the following two conditions [@ergodicity]: 
 
 ```{=tex}
 \begin{enumerate}
@@ -90,11 +87,11 @@ $\text{lim}_{n\rightarrow\infty}\text{sup}_{x\in \mathcal{X}}||P_{\Gamma_{n+1}}(
 ```
 
 \begin{lemma}
-Our proposed algorithm maintains diminishing adaptation.
+\textbf{BloRA} maintains diminishing adaptation.
 \end{lemma}
 
 \begin{proof}
-Fix any $\mathbf{x}\in \mathcal{X}$. The transition kernel in our definition is
+First consider only one block of parameters, and fix any $\mathbf{x}\in \mathcal{X}$ in that block. This is possible because we have independent updates among blocks. The transition kernel in our definition is
 $$
 P_{\Gamma_{n}}(\mathbf{x}) = Q_n(\cdot|\mathbf{x}) := (1-\beta)\; Q_{n,1}(\cdot | \mathbf{x})+\beta \; Q_{n,2}(\cdot | \mathbf{x})
 $$
@@ -142,14 +139,47 @@ which implies
 $$
 \lim_{n\rightarrow \infty}\sup_{\mathbf{x} \in \mathcal{X}}||Q_{n+1,1}(\cdot | \mathbf{x}) - Q_{n,1}(\cdot | \mathbf{x})|| = 0 \;\text{in probability}
 $$
-Now we have shown that the kernel $Q_n$ has diminishing adaptation property.
+Now we have shown that the kernel $Q_{d, n}$ has diminishing adaptation property. The overall kernel $Q_{n}$ at each iteration is a superposition of all kernels $Q_{d, n}$ for $d \in \{1,...D\}$, and therefore it has diminishing adaptation property as well.
+
 \end{proof}
+
+It is left to prove that the bounded convergence condition is also satisfied, which is usually difficult. However, previous work has shown that an adaptive MCMC is ergodic if it has diminishing adaptation and satisfies other technical conditions that are easier to check [@containment]. Following Theorem 6 in this paper, we conclude that
+\begin{theorem}
+\textbf{BloRA} is ergodic, and thus $\pi$-invariant if the following conditions are satisfied:
+\begin{enumerate}
+  \item Lighter-than-exponential tail of the target distribution: The target density $\pi$ is positive and has continuous first derivative, such that
+  $$
+  \limsup_{|x| \rightarrow \infty} \langle \frac{x}{|x|}, \nabla \log \pi(x) \rangle = -\infty
+  $$
+  \item Regularity condition on the target distribution: $\pi$ is absolutely continuous with respect to Lebesgue measure $\mu_d$, with $\pi$ bounded away from zero and infinity on compact sets, and $\sup_{x \in \mathcal{X}} \pi(x) < \infty$
+  \item Strongly decreasing condition on the target distribution: $\pi$ has continuous first derivatives such that
+  $$
+  -\limsup_{|x| \rightarrow \infty} \langle \frac{x}{|x|}, \frac{\nabla \pi(x)}{|\nabla \pi(x)|} \rangle > 0
+  $$
+\end{enumerate}
+\end{theorem}
+
+The three conditions on the target distribution are not too harsh. Many common distributions in the exponential family that has full support satisfy these conditions. In the following, we provide a proof sketch of the theorem.
+
+\begin{proof}
+By Theorem 6 in the paper and Lemma 1 proposed above, it suffices to show that the proposal of \textbf{BloRA} is uniformly locally positive given the above conditions hold. Mathematically, we would like to show that
+$$
+\exists \zeta > 0 \text{, such that } \omega := \inf_{\gamma \in \mathcal{Y}} \inf_{|z| \in \zeta} q_\gamma(z) >0,
+$$
+where $\{q_\gamma: \gamma \in \mathcal{Y}\}$ is the family of transition kernels we have.
+
+Since our kernel is a mixture, i.e. a weighted sum, of two normal distribution kernel centered at some $x \in \mathcal{X}$, the above statement is obvious if we can ensure that one of the covariance matrices of the two normal proposals is strictly positive.
+
+For the random walk proposal, we initialize its covariance matrix to be some diagonal matrix. Within finite iterations, there is a lower bound on each entry of the diagonal matrix. Hence, within the neighborhood $|z| \in \zeta$, $q_\gamma(z) > 0$ for any $\gamma$. Since we have $\omega>0$ for any block of parameters, the overall proposal satisfies uniformly local positivity condition.
+
+\end{proof}
+Notice that we can also introduce a hard lower bound on the covariance matrix of the random walk proposal. For example, for each diagonal entry of $\Gamma_n$, $\Gamma_n^{d,d}$, we can let $\Gamma_n^{d,d} = \max\{(1+W_n)\Gamma_{n-1}^{d,d}, 0.1\}$. This slight modification makes the above proof robust on infinite runs.
 
 \section{3. Simulation}
 
 \subsection{3.1 Simulation under simple normal case}
 
-Our simulation begins with a toy example which employs a standard normal distribution. Specifically, the algorithm generates 100 independent and identically distributed (i.i.d.) data points, each drawn from a standard normal distribution. We use our adaptive MCMC approach to estimate the mean and standard deviation parameters of the distribution. This simulation provides a structured environment to evaluate the efficacy of our proposed MCMC algorithm. Initial values for the mean and standard deviation are set at -5 and 5 respectively. Over the course of 10,000 iterations, the trace plots for these two parameters are as follows:
+Our simulation begins with a toy example which employs a standard normal distribution. Specifically, the algorithm generates 100 independent and identically distributed (i.i.d.) data points, each drawn from a standard normal distribution. We use \textbf{BloRA} sampler to estimate the mean and standard deviation parameters of the distribution. This simulation provides a structured environment to evaluate the efficacy of \textbf{BloRA} algorithm. Initial values for the mean and standard deviation are set at -5 and 5 respectively. Over the course of 10,000 iterations, the trace plots for these two parameters are as follows:
 
 ```{r, include=FALSE}
 sample_sim1 <- readRDS("RData/sample_sim1.rds")
@@ -176,11 +206,11 @@ plot(sample_sim1$samples[[1]][,2], xlab = "MCMC iteration",
      main = "Trace Plot of Standard Deviation Parameter")
 ```
 
-In the first plot, following rapid mixing, the trace of the mean parameter appears to oscillate around 0, which aligns with the true mean of a standard normal distribution. The dispersion of points around true value indicates the variability in the mean estimates, which is due to the small sample size. In addition, the absence of trend and heteroscedasticity suggest that the Markov chain is stationary. The observations on the second plot lead to similar conclusions, which confirm that our proposed MCMC algorithm has performed effectively in estimating these parameters. Given the simplicity of the toy example, model diagnosis is deemed unnecessary.
+In the first plot, following rapid mixing, the trace of the mean parameter appears to oscillate around 0, which aligns with the true mean of a standard normal distribution. The dispersion of points around true value indicates the variability in the mean estimates, which is due to the small sample size. In addition, the absence of trend and heteroscedasticity suggest that the Markov chain is stationary. The observations on the second plot lead to similar conclusions, which confirm that our proposed MCMC algorithm has performed effectively in estimating these parameters. We consider this toy example as a model diagnosis.
 
 \subsection{3.2 Simulation using in-class dataset: SMS data}
 
-The second simulation study uses a real-world dataset under a mixture model assumption, which is directly borrowed from course materials. The dataset records the daily number of text messages sent and received by Davidson Pilon over 74 days, and it's assumed that there exist a "hidden" change point among these 74 days, such that the data before and after the change point come from two distinct exponential distributions. Our MCMC algorithm aims to identify the location of this change point and estimate the parameters of two exponential distributions under a Bayesian model framework. The initial value is intentionally set to be extreme to test the robustness of our algorithm, and a comparative analysis is made between our algorithm and the random work mixture MH that we examined in exercise 9. We encapsulate the two exponential parameters within block 1 and position the change point in block 2. The trace plots illustrating the results are presented below:
+The second simulation study uses a real-world dataset under a mixture model assumption, which is directly borrowed from course materials. The dataset records the daily number of text messages sent and received by Davidson Pilon over 74 days, and it's assumed that there exist a "hidden" change point among these 74 days, such that the data before and after the change point come from two distinct exponential distributions. Our MCMC algorithm aims to identify the location of this change point and estimate the parameters of two exponential distributions under a Bayesian model framework. The initial value is intentionally set to be extreme to test the robustness of our algorithm, and a comparative analysis is made between our algorithm and the random work mixture MH that we examined in exercise 9. We place the two exponential parameters within block 1 and the change point within block 2. The trace plots illustrating the results are presented below:
 
 
 ```{r, include=FALSE}
@@ -202,7 +232,7 @@ plot_color <- rgb(0, 0, 0, 0.5)
 plot(MH_sample_sim2$rates_trace[, 1], 
      xlab = "MCMC iteration", ylab = "Rate before Change Point", type = "o",
      col = plot_color,
-     main = "Trace-Plot of Rate before Change\nRandom Walk MHC")
+     main = "Trace-Plot of Rate before Change\nRandom Walk MH")
 
 plot(MH_sample_sim2$change_point_trace, 
      xlab = "MCMC iteration", ylab = "Change Point", type = "o",
@@ -212,60 +242,51 @@ plot(MH_sample_sim2$change_point_trace,
 plot(sample_sim2$samples[[1]][, 1],
      xlab = "MCMC iteration", ylab = "Rate before Change Point", type = "o",
      col = plot_color,
-     main = "Trace-Plot of Rate before Change\nNew MCMC")
+     main = "Trace-Plot of Rate before Change\nBloRA")
 
 plot(sample_sim2$samples[[2]][, 1],
      xlab = "MCMC iteration", ylab = "Change Point", type = "o",
      col = plot_color,
-     main = "Trace-Plot of Change Point\nNew MCMC")
+     main = "Trace-Plot of Change Point\nBloRA")
 ```
 
-The comparison between the trace-plots of the same parameters suggests that our algorithm can still mix rapidly and provide robust estimations under extreme initial conditions, using the results from traditional MH as a benchmark. To further explore which block structure optimizes \textbf{BloRA}'s performance in this scenario, we test three variants of \textbf{BloRA} relative to traditional MH. Specifically, one employing empirical covariance across all three parameters, another using empirical covariance between the two exponential parameters, and a third variant without any empirical covariance. To mitigate the effect of the burn-in stage on our computations, we consider only the samples after 10,000 iterations. Trace-plots (for the change point only) and a summary table of their effective sample size per second (ESS/second) are presented below:
+The comparison between the trace-plots of the same parameters suggests that our algorithm can still mix rapidly and provide robust estimations under extreme initial conditions, using the results from traditional MH as a benchmark. Note that various block structures can be applied here, and we examine the performances of three variants in terms of effective sample size per second (ESS/second) and MCSE. Specifically, one employs empirical covariance across all three parameters, another uses empirical covariance between the two exponential parameters, and the third one uses no empirical covariance. For each candidate, we generate 10 chains and compute the average; to compute both metrics based on MCMC samples after convergence, we set the first 10,000 iterations as the burn-in stage. Due to the low-dimensionality, it is expected that traditional MH will outperform \textbf{BloRA} in this scenario. We still include it in the summary table of MCSE, but the focus is on the exploration to covariance structure. Let's look at ESS/second first.
 
 ```{r, echo=FALSE}
 ESS_summary <- readRDS("RData/ESS_summary.rds")
-MCMC_results_sim2 <- readRDS("RData/MCMC_results_sim2.rds")
+knitr::kable(ESS_summary,
+             caption = "The Comparison of ESS/second among three variants of BloRA")
 ```
 
-```{r, echo=FALSE, fig.width=8, fig.height=8}
-par(mfrow = c(2, 2),  # Layout: 2x2 grid
-    mar = c(4, 4, 2, 1),  # Margins: bottom, left, top, right
-    cex.lab = 0.75,  # Axis label size
-    cex.main = 0.8,  # Main title text size
-    mgp = c(2, 0.7, 0),  # Margin line for title, labels, and axis
-    tcl = -0.3)  # Tick mark length
-
-plot(MCMC_results_sim2[[1]]$samples[[3]], 
-     xlab = "MCMC iteration", ylab = "Change Point", type = "o",
-     col = plot_color,
-     main = "Trace-Plot of Change Point\nNo Covariance")
-
-plot(MCMC_results_sim2[[2]]$samples[[2]], 
-     xlab = "MCMC iteration", ylab = "Change Point", type = "o",
-     col = plot_color,
-     main = "Trace-Plot of Change Point\nCovariance Between Exponential Parameters")
-
-plot(MCMC_results_sim2[[3]]$samples[[1]][,3],
-     xlab = "MCMC iteration", ylab = "Change Point", type = "o",
-     col = plot_color,
-     main = "Trace-Plot of Rate before Change\nCovariance among all Parameters")
-
-plot(MCMC_results_sim2[[4]]$change_point_trace,
-     xlab = "MCMC iteration", ylab = "Change Point", type = "o",
-     col = plot_color,
-     main = "Trace-Plot of Rate before Change\nCovariance among all Parameters")
-```
+Based on the summary table, it is observed that only considering the empirical covariance between the rates does not significantly affect the ESS/second for any of the parameters, which aligns with the data generation process that the two rates are independent conditional on a change point; Conversely, grouping all three parameters into a single parameter block results in fluctuations in the ESS/second for the rates, but shows an improvement for the Change Point itself, indicating that using the whole covariance matrix can help explore the marginal distribution of Change Point. As for the average MCSE after convergence, a summary table including traditional MH is as follows:
 
 ```{r, echo=FALSE}
-knitr::kable(ESS_summary, caption = "The Summary of ESS/second of three candidates from BloRA")
+MCSE_table <- readRDS("RData/MCSE_table.rds")
+MCSE_table <- t(MCSE_table)
+knitr::kable(MCSE_table,
+             caption = "The Comparison of MCSE among Variants of BloRA and Traditioanl MH")
 ```
+
+As our expectation, the traditional MH outperforms any variant of \textbf{BloRA} due to dimensionality, but the difference is not significant. The pattern in Table 1 can also be identified here. Based on the this simulation study and the nature of adaptive MCMC, we anticipate that our algorithm has advantage when (1) it is known in advance that there is a natural block structure in parameters and parameters in same block have strong covariance (2) the dimensionality is relatively high. Further discussions are made in conclusion.
+
+
+\section*{4. Conclusion}
+In this project, we introduced a novel adaptive MCMC algorithm, \textbf{BloRA}, which enhances flexibility by incorporating blockwise parameter design and ratio-adjusted step sizes. As demonstrated in Section 2, \textbf{BloRA} maintains ergodicity and $\pi$-invariance. Furthermore, we conducted two simulation studies to illustrate that this new algorithm offers a promising result. In particular, it can automatically tune the proposal step size, which is theoretically more robust if we have no prior information on the spread of the parameters of interest. However, it is important to acknowledge some potential limitations. The performance of the algorithm is significantly influenced by its blockwise design, yet finding the optimal blocks remains a challenge that often depends heavily on prior knowledge. Overall, \textbf{BloRA} demonstrates superior performance in scenarios involving complex target distributions and correlated parameters.
+
+\newpage
+
+
 
 \section{References}
 
 ::: {#refs}
 :::
 
-\section{Appendix}
+\newpage
+
+\section*{5. Appendix}
+\subsection*{5.1 MCMC Implementation}
+Following is the detailed implementation of \textbf{BloRA}. The \texttt{kernel()} function gives \textbf{BloRA} proposal state, the \texttt{mcmc()} is a single-block version, and the \texttt{mcmc\_multmix()} is the \textbf{BloRA} demonstrated in Algorithm 1. 
 ```{r}
 # run mcmc once
 kernel <- function(Gamma, x, x_sigma, beta, d){
@@ -374,6 +395,8 @@ mcmc_multmix <- function(x0, N, log_gamma, Gamma, beta, alpha, x_sigma, dat){
 }
 ```
 
+\subsection*{5.2 Misc}
+The code snippet below presents an alternative approach we experimented with. This twisted version proposes new states that are generally inversely correlated with the current state, which should theoretically enhance the mixing rate of the Markov chain. However, the unique characteristics of the SMS dataset led to inconsistent performance with this sampler. So we precluded this version in our main report.
 ```{r}
 mcmc_multmix_reverse <- function(x0, N, log_gamma, Gamma, beta, alpha, x_sigma, dat){
   d_list <- sapply(x0, length) # dim of each parameter
