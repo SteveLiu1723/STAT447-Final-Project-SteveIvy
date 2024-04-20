@@ -1,1 +1,3 @@
-# STAT447-Final-Project-SteveIvy
+# STAT447 Final Project
+
+## Author: Ivy Liu, Steve Liu
